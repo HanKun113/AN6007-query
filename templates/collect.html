@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collect Meter Readings</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Collect Meter Readings</h1>
+        
+        <div class="current-time-container">
+            <h2>Current Time</h2>
+            <pre id="currentTime">Loading current time...</pre>
+        </div>
+
+        <h2 style="text-align: center; margin-bottom: 1rem;">Time Control</h2>
+        
+        <div class="note">
+            <div class="form-group">
+                <label for="incrementValue">Increment Value</label>
+                <input type="number" 
+                    id="incrementValue" 
+                    value="1" 
+                    min="1" 
+                    style="width: 100%">
+            </div>
+            <div class="form-group">
+                <label for="incrementUnit">Time Unit</label>
+                <select id="incrementUnit" style="width: 100%">
+                    <option value="minutes">Minutes</option>
+                    <option value="hours">Hours</option>
+                    <option value="days" selected>Days</option>
+                    <option value="months">Months</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="button-group">
+            <button onclick="collectMeterReading()">Confirm Collection</button>
+            <button onclick="location.href='/'" style="background-color: var(--secondary-color)">Return Home</button>
+        </div>
+
+        <div class="result-container">
+            <h2>Reading Results</h2>
+            <pre id="meterReadingResult"></pre>
+        </div>
+    </div>
+
+    <script>
+        async function getCurrentTime() {
+            const timeElement = document.getElementById('currentTime');
+            try {
+                const response = await fetch('/current_time');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const data = await response.json();
+                const timeInfo = data["Current Simulation Time"];
+                const formattedTime = `Date: ${timeInfo.Date}\nTime: ${timeInfo.Time}\nWeekday: ${timeInfo.Weekday}`;
+                timeElement.textContent = formattedTime;
+            } catch (err) {
+                console.error('Error fetching time:', err);
+                timeElement.textContent = 'Error: Failed to fetch current time. Please try again.';
+            }
+        }
+
+        async function collectMeterReading() {
+            const resultElement = document.getElementById("meterReadingResult");
+            const incrementValue = parseInt(document.getElementById("incrementValue").value);
+            const incrementUnit = document.getElementById("incrementUnit").value;
+            
+            if (isNaN(incrementValue) || incrementValue < 1) {
+                resultElement.textContent = "Error: Please enter a valid increment value (minimum 1)";
+                return;
+            }
+            
+            resultElement.textContent = "Collecting readings...";
+            
+            try {
+                const response = await fetch('/meter_reading', { 
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        value: incrementValue,
+                        unit: incrementUnit
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || data.message || 'Server returned an error');
+                }
+                
+                resultElement.textContent = JSON.stringify(data, null, 2);
+                await getCurrentTime();
+                
+            } catch (err) {
+                console.error('Error collecting readings:', err);
+                resultElement.textContent = 'Error: ' + (err.message || 'Failed to collect readings. Please try again.');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', getCurrentTime);
+
+        setInterval(getCurrentTime, 30000);
+    </script>
+</body>
+</html>
